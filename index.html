@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartSpend - Quản lý tài chính cá nhân</title>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/accumulation.css">
+  <link rel="stylesheet" href="css/todo.css">
+  <style>
+    /* Auth Modal Styles */
+    .auth-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .auth-modal.active {
+      display: flex;
+    }
+
+    .auth-box {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 12px;
+      width: 350px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .auth-box h2 {
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .auth-field {
+      margin-bottom: 1rem;
+    }
+
+    .auth-field label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .auth-field input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .auth-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-auth-primary {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-auth-secondary {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .auth-switch {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .auth-switch a {
+      color: var(--primary-color);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(33, 150, 243, 0.1);
+      color: #2196F3;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+
+<body class="light">
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>Bình Phạm</h1>
+        <p>Quản lý tài chính cá nhân</p>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Tổng quan</span>
+        </button>
+        <button class="nav-item" data-tab="history">
+          <i data-lucide="list"></i>
+          <span>Lịch sử chi tiêu</span>
+        </button>
+        <button class="nav-item" data-tab="installments">
+          <i data-lucide="credit-card"></i>
+          <span>Theo dõi trả góp</span>
+        </button>
+        <button class="nav-item" data-tab="accumulation">
+          <i data-lucide="piggy-bank"></i>
+          <span>Tích lũy</span>
+        </button>
+        <button class="nav-item" data-tab="investment">
+          <i data-lucide="trending-up"></i>
+          <span>Danh mục đầu tư</span>
+        </button>
+        <button class="nav-item" data-tab="todo">
+          <i data-lucide="check-square"></i>
+          <span>To Do Task</span>
+        </button>
+        <button class="nav-item" id="btn-categories">
+          <i data-lucide="settings"></i>
+          <span>Quản lý danh mục</span>
+        </button>
+        <button class="nav-item" id="btn-limits">
+          <i data-lucide="target"></i>
+          <span>Cài đặt hạn mức</span>
+        </button>
+        <button class="nav-item" id="btn-theme-toggle">
+          <i data-lucide="moon"></i>
+          <span>Chế độ tối</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="user-status-area">
+          <!-- User info appended here -->
+        </div>
+        <button class="nav-item" id="btn-login-sidebar">
+          <i data-lucide="log-in"></i>
+          <span>Đăng nhập / Cloud</span>
+        </button>
+
+        <button class="btn-ai" id="btn-ai-analyze" disabled>
+          <i data-lucide="sparkles"></i>
+          <span>AI Phân Tích (Bảo trì)</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Auth Modal -->
+      <div id="auth-modal" class="modal-overlay hidden">
+        <div class="modal" style="max-width: 400px;">
+          <div class="modal-header">
+            <h2 id="auth-title">Đăng nhập</h2>
+            <button class="btn-close-modal" id="btn-auth-close-x"><i data-lucide="x"></i></button>
+          </div>
+          <div class="form-group">
+            <label>API URL (Google Script)</label>
+            <input type="text" id="auth-api-url" placeholder="https://script.google.com/..." autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Tài khoản</label>
+            <input type="text" id="auth-username" placeholder="Username">
+          </div>
+          <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" id="auth-password" placeholder="Password">
+          </div>
+          <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <button class="btn-submit" id="btn-auth-submit">Đăng nhập</button>
+            <button class="btn-secondary" id="btn-auth-close">Đóng</button>
+          </div>
+          <div class="auth-switch" style="margin-top: 1rem; text-align: center; font-size: 0.9rem;">
+            <span id="auth-switch-text" style="color: var(--text-muted)">Chưa có tài khoản?</span>
+            <a id="btn-switch-mode" style="color: var(--primary); cursor: pointer; font-weight: 600;">Đăng ký ngay</a>
+          </div>
+        </div>
+      </div>
+      <main class="main-content">
+        <!-- Mobile Header -->
+        <header class="mobile-header">
+          <h1>Bình Phạm</h1>
+          <div class="mobile-actions">
+            <button id="btn-limits-mobile"><i data-lucide="target"></i></button>
+            <button id="btn-theme-mobile"><i data-lucide="moon"></i></button>
+            <button id="btn-categories-mobile"><i data-lucide="settings"></i></button>
+          </div>
+        </header>
+
+        <!-- Date Navigator -->
+        <div class="date-navigator" id="date-navigator">
+          <button id="btn-prev-month"><i data-lucide="chevron-left"></i></button>
+          <div class="current-date">
+            <i data-lucide="calendar" class="text-indigo"></i>
+            <span id="current-month-display">Tháng 10 2023</span>
+          </div>
+          <button id="btn-next-month"><i data-lucide="chevron-right"></i></button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="tab-dashboard" class="tab-pane active">
+          <div class="dashboard-controls">
+            <div id="daily-limit-display" class="limit-display hidden">
+              <i data-lucide="target" class="text-rose"></i>
+              Hạn mức ngày: <span class="font-bold">0 ₫</span>
+            </div>
+            <div class="view-mode-switch">
+              <button class="mode-btn active" data-mode="daily">Ngày</button>
+              <button class="mode-btn" data-mode="weekly">Tuần</button>
+              <button class="mode-btn" data-mode="monthly">Tháng</button>
+            </div>
+          </div>
+
+          <!-- Stats Cards -->
+          <div class="stats-grid" id="stats-grid">
+            <!-- Injected by JS: Total Expense Card & Limit Status Card -->
+          </div>
+
+          <!-- Charts Area -->
+          <div class="charts-section">
+            <div class="chart-container">
+              <h4 id="bar-chart-title">Biểu đồ chi tiêu</h4>
+              <div class="chart-wrapper">
+                <canvas id="bar-chart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <h4>Cơ cấu chi tiêu tháng này</h4>
+              <div class="chart-wrapper">
+                <canvas id="expense-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Transactions -->
+          <div class="section-header">
+            <h3>Gần đây</h3>
+            <button class="link-btn" data-tab="history">Xem tất cả</button>
+          </div>
+          <div class="transaction-list card" id="recent-transactions">
+            <!-- Rendered Items -->
+          </div>
+        </div>
+
+        <div id="tab-history" class="tab-pane">
+          <div class="search-bar">
+            <i data-lucide="search"></i>
+            <input type="text" id="search-input" placeholder="Tìm kiếm theo ghi chú...">
+          </div>
+          <div class="section-header">
+            <h3 id="history-title">Chi tiêu tháng</h3>
+            <div>
+              <button class="btn-filter" id="btn-open-bulk-delete"
+                style="color: var(--danger); border-color: var(--danger); margin-right: 0.5rem; background: transparent;">
+                <i data-lucide="trash-2"></i> Xóa dữ liệu
+              </button>
+              <button class="btn-filter" id="btn-toggle-filter">
+                <i data-lucide="filter"></i> Bộ lọc
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Panel -->
+          <div class="filter-panel hidden" id="filter-panel">
+            <div class="filter-grid">
+              <div class="form-group">
+                <label>Danh mục</label>
+                <select id="filter-category">
+                  <option value="">Tất cả danh mục</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Từ ngày</label>
+                <input type="date" id="filter-start-date">
+              </div>
+              <div class="form-group">
+                <label>Đến ngày</label>
+                <input type="date" id="filter-end-date">
+              </div>
+            </div>
+            <div class="filter-actions">
+              <button id="btn-clear-filter" class="text-red">
+                <i data-lucide="refresh-ccw"></i> Xóa bộ lọc
+              </button>
+            </div>
+          </div>
+
+          <div class="transaction-list full-history" id="history-list">
+            <!-- Rendered Items -->
+          </div>
+        </div>
+
+        <div id="tab-installments" class="tab-pane">
+          <div class="section-header">
+            <h2>Theo dõi Trả góp</h2>
+            <button class="btn-primary" id="btn-add-installment">
+              <i data-lucide="plus"></i> Thêm mới
+            </button>
+          </div>
+          <div class="installments-grid" id="installments-grid">
+            <!-- Rendered Items -->
+          </div>
+        </div>
+
+        <div id="tab-accumulation" class="tab-pane">
+          <div class="section-header">
+            <h2>Mục tiêu Tích lũy</h2>
+            <button class="btn-primary" id="btn-add-goal">
+              <i data-lucide="plus"></i> Thêm mục tiêu
+            </button>
+          </div>
+          <div class="goals-grid" id="goals-grid">
+            <!-- Rendered Goals -->
+          </div>
+        </div>
+
+        <div id="tab-investment" class="tab-pane">
+          <div class="section-header">
+            <h2>Danh mục Đầu tư</h2>
+            <button class="btn-primary" id="btn-add-investment">
+              <i data-lucide="plus"></i> Thêm danh mục
+            </button>
+          </div>
+
+          <!-- Investment Global Summary -->
+          <div id="investment-summary-board" class="stats-grid"
+            style="grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+            <!-- Injected by JS -->
+          </div>
+
+          <!-- Investment Chart Section -->
+          <div class="charts-section" style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="chart-container" style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start;">
+              <div style="flex: 1; min-width: 250px; max-width: 380px;">
+                <h4 style="margin-bottom: 1rem; text-align: center;">Biểu đồ Lợi nhuận (Các hạng mục có lời)</h4>
+                <div class="chart-wrapper" style="height: 220px; position: relative;">
+                  <canvas id="investment-profit-chart"></canvas>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 250px;">
+                <h4 style="margin-bottom: 1rem;">Chi tiết Lợi nhuận</h4>
+                <div id="investment-legend-list"
+                  style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 220px; overflow-y: auto;">
+                  <!-- Legend Items Injected by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="goals-grid" id="investment-grid">
+            <!-- Rendered Investments -->
+          </div>
+        </div>
+
+        <div id="tab-todo" class="tab-pane">
+          <div class="todo-container">
+            <div class="todo-header">
+              <h2>Danh sách việc cần làm</h2>
+            </div>
+
+            <div class="todo-input-group">
+              <input type="text" id="todo-input" placeholder="Thêm việc cần làm mới...">
+              <button class="btn-add-todo" id="btn-add-todo">
+                <i data-lucide="plus"></i> Thêm
+              </button>
+            </div>
+
+            <div class="todo-list" id="todo-list">
+              <!-- Todo items rendered here -->
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Floating Action Button -->
+      <button class="fab" id="btn-fab-add" title="Nhấn Ctrl + R để thêm nhanh">
+        <i data-lucide="plus"></i>
+      </button>
+
+      <!-- Modals -->
+
+      <!-- Transaction Modal -->
+      <div class="modal-overlay hidden" id="modal-transaction">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="trans-modal-title">Thêm khoản chi</h2>
+            <div class="modal-actions">
+              <button id="btn-delete-trans" class="btn-icon-danger hidden"><i data-lucide="trash-2"></i></button>
+              <button class="btn-close-modal"><i data-lucide="x"></i></button>
+            </div>
+          </div>
+          <form id="form-transaction">
+            <input type="hidden" id="trans-id">
+            <div class="form-group amount-group">
+              <label>Số tiền</label>
+              <div class="input-wrapper">
+                <input type="number" id="trans-amount" placeholder="0" required autofocus>
+                <span class="currency">VND</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Danh mục</label>
+                <select id="trans-category" required>
+                  <!-- Categories -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Ngày chi</label>
+                <input type="date" id="trans-date" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Ghi chú</label>
+              <input type="text" id="trans-note" placeholder="Ví dụ: Cà phê sáng...">
+            </div>
+            <button type="submit" class="btn-submit">Lưu</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Limit Modal -->
+      <div class="modal-overlay hidden" id="modal-limit">
+        <div class="modal small-modal">
+          <div class="modal-header">
+            <h2>Hạn mức ngày</h2>
+          </div>
+          <p class="modal-subtitle">Tháng <span id="limit-month-display"></span></p>
+          <form id="form-limit">
+            <div class="form-group amount-group">
+              <div class="input-wrapper center">
+                <input type="number" id="limit-amount" placeholder="0" autofocus>
+                <span class="currency">VND</span>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
+              <h3 style="font-size:0.9rem; font-weight:600; margin-bottom:0.75rem;">Hạn mức theo danh mục</h3>
+              <div id="limit-category-list"
+                style="display:flex; flex-direction:column; gap:0.75rem; max-height:300px; overflow-y:auto;">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+
+            <div class="modal-footer" style="margin-top: 1.5rem;">
+              <button type="submit" class="btn-primary" style="width:100%">Lưu thiết lập</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Category Settings Modal -->
+      <div class="modal-overlay hidden" id="modal-categories">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>Quản lý danh mục</h2>
+            <button class="btn-close-modal"><i data-lucide="x"></i></button>
+          </div>
+          <div class="category-list" id="settings-category-list">
+            <!-- List -->
+          </div>
+          <form id="form-add-category" class="add-category-form">
+            <input type="text" id="new-cat-name" placeholder="Tên danh mục mới" required>
+            <input type="color" id="new-cat-color" value="#3b82f6">
+            <button type="submit" class="btn-icon-primary"><i data-lucide="plus"></i></button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Installment Modal -->
+      <div class="modal-overlay hidden" id="modal-installment">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="inst-modal-title">Thêm trả góp</h2>
+            <button class="btn-close-modal"><i data-lucide="x"></i></button>
+          </div>
+          <form id="form-installment">
+            <input type="hidden" id="inst-id">
+            <div class="form-group">
+              <label>Tên sản phẩm</label>
+              <input type="text" id="inst-name" placeholder="VD: iPhone 15" required>
+            </div>
+            <div class="form-group">
+              <label>Giá trị gốc</label>
+              <input type="number" id="inst-value" placeholder="0" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Lãi suất/tháng (%)</label>
+                <input type="number" step="0.01" id="inst-rate" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label>Tổng tháng</label>
+                <input type="number" id="inst-term" placeholder="6" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Ngày bắt đầu</label>
+              <input type="date" id="inst-date" required>
+            </div>
+            <button type="submit" class="btn-submit">Lưu</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Installment Details Modal (Existing) -->
+      <div class="modal-overlay hidden" id="modal-inst-detail">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="inst-detail-title">Chi tiết trả góp</h2>
+            <button class="btn-close-modal"><i data-lucide="x"></i></button>
+          </div>
+          <p class="inst-hint">Chạm vào kỳ để đánh dấu đã trả</p>
+          <div class="inst-schedule" id="inst-schedule-list">
+            <!-- Schedule -->
+          </div>
+          <div class="modal-footer-actions">
+            <button id="btn-edit-inst" class="btn-secondary">
+              <i data-lucide="edit-2"></i> Sửa
+            </button>
+            <button id="btn-delete-inst" class="btn-danger">
+              <i data-lucide="trash-2"></i> Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goal Modal -->
+      <div class="modal-overlay hidden" id="modal-goal">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="goal-modal-title">Thêm mục tiêu</h2>
+            <div class="modal-actions">
+              <button id="btn-delete-goal" class="btn-icon-danger hidden"><i data-lucide="trash-2"></i></button>
+              <button class="btn-close-modal"><i data-lucide="x"></i></button>
+            </div>
+          </div>
+          <div class="modal-tabs">
+            <button class="modal-tab active" data-modal-tab="goal-info">Thông tin</button>
+            <button class="modal-tab" data-modal-tab="goal-history">Nhật ký & Nạp tiền</button>
+          </div>
+
+          <div id="goal-tab-info" class="modal-tab-content active">
+            <form id="form-goal">
+              <input type="hidden" id="goal-id">
+
+              <div class="form-group">
+                <label>Tên mục tiêu</label>
+                <input type="text" id="goal-name" placeholder="VD: Mua xe, Du lịch..." required>
+              </div>
+
+              <div class="form-group amount-group">
+                <label>Tổng giá trị (VND)</label>
+                <div class="input-wrapper">
+                  <input type="number" id="goal-target" placeholder="0" required>
+                  <span class="currency">VND</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Ngày cần (Deadline)</label>
+                <input type="date" id="goal-deadline">
+                <p class="input-hint">Để trống nếu vô thời hạn</p>
+              </div>
+
+              <!-- Auto-calc Display -->
+              <div id="goal-calc-preview" class="calc-preview hidden"
+                style="background:#f0f9ff; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #bae6fd; color:#0369a1;">
+                <p style="font-weight:600; font-size:0.9rem;">Kế hoạch tích lũy:</p>
+                <p id="goal-calc-msg" style="font-size:1.1rem; font-weight:700; margin-top:0.25rem;">...</p>
+              </div>
+
+              <div class="form-group">
+                <label>Màu sắc</label>
+                <input type="color" id="goal-color" value="#10b981"
+                  style="width: 100%; height: 40px; border-radius: 8px; cursor:pointer;">
+              </div>
+
+              <div class="modal-footer" style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                <button type="submit" class="btn-submit">Lưu thay đổi</button>
+                <button id="btn-delete-goal" class="btn-danger hidden" style="width:100%; margin-top:0.5rem">Xóa mục
+                  tiêu</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="goal-tab-history" class="modal-tab-content hidden">
+            <div class="current-accumulated"
+              style="text-align:center; padding:1rem; background:var(--surface); border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);">
+              <p style="font-size:0.9rem; color:var(--text-muted);">Đã tích lũy được</p>
+              <p id="goal-current-display" style="font-size:1.5rem; font-weight:700; color:var(--primary);">0 ₫</p>
+            </div>
+
+            <form id="form-goal-transaction"
+              style="margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border);">
+              <p style="font-weight:600; margin-bottom:0.5rem;">Thêm giao dịch mới</p>
+              <div class="form-row">
+                <div class="form-group" style="flex:1">
+                  <input type="number" id="goal-trans-amount" placeholder="Số tiền" required>
+                </div>
+                <div class="form-group" style="width:100px;">
+                  <select id="goal-trans-type">
+                    <option value="deposit">Nạp</option>
+                    <option value="withdraw">Rút</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <input type="text" id="goal-trans-note" placeholder="Note (Tùy chọn)">
+              </div>
+              <button type="submit" class="btn-secondary" style="width:100%">Lưu giao dịch</button>
+            </form>
+
+            <div class="history-list" id="goal-modal-history-list" style="max-height:200px; overflow-y:auto;">
+              <!-- Embedded History Items -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goal History Modal -->
+      <div class="modal-overlay hidden" id="modal-goal-history">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="history-modal-title">Lịch sử tích lũy</h2>
+            <button class="btn-close-modal"><i data-lucide="x"></i></button>
+          </div>
+
+          <div id="history-goal-plan"
+            style="background:#f0f9ff; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #bae6fd; color:#0369a1;"
+            class="hidden">
+            <!-- Plan Info -->
+          </div>
+          <div class="history-list" id="goal-history-list"
+            style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
+            <!-- Items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Investment Modal -->
+      <div class="modal-overlay hidden" id="modal-investment">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="inv-modal-title">Thêm danh mục</h2>
+            <div class="modal-actions" style="display:flex; align-items:center; gap:0.5rem">
+              <button id="btn-delete-inv" class="btn-icon-danger hidden" type="button" title="Xóa danh mục">
+                <i data-lucide="trash-2"></i>
+              </button>
+              <button class="btn-close-modal"><i data-lucide="x"></i></button>
+            </div>
+          </div>
+
+          <div class="modal-tabs">
+            <button class="modal-tab active" data-modal-tab="inv-info">Thông tin</button>
+            <button class="modal-tab" data-modal-tab="inv-history">Giao dịch (Lời/Lỗ)</button>
+          </div>
+
+          <!-- Tab Info -->
+          <div id="inv-tab-info" class="modal-tab-content">
+            <form id="form-inv">
+              <input type="hidden" id="inv-id">
+              <div class="form-group">
+                <label>Tên danh mục</label>
+                <input type="text" id="inv-name" required placeholder="Ví dụ: Chứng khoán, Vàng...">
+              </div>
+              <div class="form-group">
+                <label>Màu sắc</label>
+                <input type="color" id="inv-color" value="#8b5cf6"
+                  style="width: 100%; height: 40px; border-radius: 8px; cursor: pointer;">
+              </div>
+              <div class="form-group">
+                <label>Kế hoạch mỗi tháng (VNĐ)</label>
+                <input type="number" id="inv-target" placeholder="0">
+              </div>
+              <div class="modal-footer" style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                <button type="submit" class="btn-submit">Lưu thông tin</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Tab History -->
+          <div id="inv-tab-history" class="modal-tab-content hidden">
+            <div class="invest-summary"
+              style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-bottom:1rem;">
+              <div
+                style="background:var(--surface); padding:0.5rem; border-radius:8px; border:1px solid var(--border); text-align:center;">
+                <p style="font-size:0.75rem; color:var(--text-muted)">Tổng chi (Vốn)</p>
+                <p id="inv-capital-display" style="font-weight:700;">0 ₫</p>
+              </div>
+              <div
+                style="background:var(--surface); padding:0.5rem; border-radius:8px; border:1px solid var(--border); text-align:center;">
+                <p style="font-size:0.75rem; color:var(--text-muted)">Tổng thu (Doanh thu)</p>
+                <p id="inv-revenue-display" style="font-weight:700;">0 ₫</p>
+              </div>
+            </div>
+
+            <div class="calc-preview"
+              style="background:#f8fafc; padding:0.75rem; border-radius:8px; margin-bottom:1rem; text-align:center; border:1px solid var(--border);">
+              <p style="font-size:0.85rem; color:#64748b;">Chênh lệch (Tổng thu - Tổng chi):</p>
+              <p id="inv-total-display" style="font-size:1.2rem; font-weight:800; color:var(--primary);">0 ₫</p>
+            </div>
+
+            <form id="form-inv-transaction"
+              style="margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border);">
+              <p style="font-weight:600; margin-bottom:0.5rem;">Giao dịch mới</p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label style="font-size:0.8rem">Tiền Chi (Vốn ra)</label>
+                  <input type="number" id="inv-trans-out" placeholder="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label style="font-size:0.8rem">Tiền Thu (Doanh thu/Bán)</label>
+                  <input type="number" id="inv-trans-in" placeholder="0" value="0">
+                </div>
+              </div>
+              <button type="submit" class="btn-secondary" style="width:100%">Lưu giao dịch</button>
+            </form>
+
+            <div class="history-list" id="inv-history-list" style="max-height:200px; overflow-y:auto; margin-top:1rem;">
+              <!-- Transaction History -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk Delete Modal -->
+      <div class="modal-overlay hidden" id="modal-bulk-delete">
+        <div class="modal small-modal">
+          <div class="modal-header">
+            <h2>Xóa dữ liệu</h2>
+            <button class="btn-close-modal"><i data-lucide="x"></i></button>
+          </div>
+          <form id="form-bulk-delete">
+            <div class="form-group">
+              <label>Kiểu xóa</label>
+              <select id="bulk-delete-type">
+                <option value="day">Theo Ngày</option>
+                <option value="week">Theo Tuần</option>
+                <option value="month">Theo Tháng</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="bulk-delete-input-container">
+              <label id="bulk-delete-label">Chọn ngày</label>
+              <input type="date" id="bulk-delete-date" required>
+            </div>
+
+            <p id="bulk-delete-hint" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;"></p>
+
+            <div class="modal-footer" style="display:flex; gap:1rem; justify-content:flex-end;">
+              <button type="button" class="btn-text btn-close-modal">Hủy</button>
+              <button type="submit" class="btn-submit" style="margin-top:0; background: var(--danger);">Xóa vĩnh
+                viễn</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+  </div>
+
+  <!-- Application Script -->
+  <script src="js/auth.js"></script>
+  <script src="js/script.js"></script>
+</body>
+
+</html>
